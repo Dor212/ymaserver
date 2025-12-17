@@ -5,6 +5,9 @@ import { connectDB } from "./db.js";
 import referenceClientsRouter from "./routes/referenceClients.js";
 import referenceRequestsRouter from "./routes/referenceRequests.js";
 import projectsRouter from "./routes/projects.js";
+import path from "path";
+import { fileURLToPath } from "url";
+
 
 dotenv.config();
 
@@ -18,11 +21,17 @@ const DEFAULT_ALLOWED = [
   "http://127.0.0.1:3000",
 ];
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
+
 const ENV_ALLOWED = (process.env.CORS_ORIGINS || "")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
-
+  
 const ALLOWED_ORIGINS = [...new Set([...DEFAULT_ALLOWED, ...ENV_ALLOWED])];
 
 const corsOptions = {
@@ -39,7 +48,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 
 app.use(express.json());
 
