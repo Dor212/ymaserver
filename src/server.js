@@ -6,31 +6,42 @@ import referenceClientsRouter from "./routes/referenceClients.js";
 import referenceRequestsRouter from "./routes/referenceRequests.js";
 import projectsRouter from "./routes/projects.js";
 
-
-
 dotenv.config();
 
 const app = express();
-
 app.set("trust proxy", true);
+
+const DEFAULT_ALLOWED = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+];
+
+const ENV_ALLOWED = (process.env.CORS_ORIGINS || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+const ALLOWED_ORIGINS = [...new Set([...DEFAULT_ALLOWED, ...ENV_ALLOWED])];
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      const allowed = (process.env.CORS_ORIGINS || "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-
       if (!origin) return callback(null, true);
-      if (!allowed.length || allowed.includes(origin)) {
+      if (!ALLOWED_ORIGINS.length || ALLOWED_ORIGINS.includes(origin)) {
         return callback(null, true);
       }
-      return callback(new Error("Not allowed by CORS"));
+      return callback(null, false);
     },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
+    optionsSuccessStatus: 204,
   })
 );
+
+app.options("*", cors());
 
 app.use(express.json());
 
@@ -38,10 +49,13 @@ app.get("/", (req, res) => {
   res.json({ status: "ok", message: "YMA server is running" });
 });
 
+app.get("/healthz", (req, res) => {
+  res.status(200).send("ok");
+});
+
 app.use("/api/reference-clients", referenceClientsRouter);
 app.use("/api/reference-requests", referenceRequestsRouter);
 app.use("/api/projects", projectsRouter);
-
 
 app.use((req, res) => {
   res.status(404).json({ error: "Not found" });
