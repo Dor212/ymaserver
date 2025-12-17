@@ -3,18 +3,25 @@ import nodemailer from "nodemailer";
 const { EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS, EMAIL_FROM } =
   process.env;
 
+const port = Number(EMAIL_PORT) || 587;
+
 const transporter = nodemailer.createTransport({
   host: EMAIL_HOST,
-  port: Number(EMAIL_PORT) || 587,
-  secure: false,
+  port,
+  secure: port === 465,
   auth: {
     user: EMAIL_USER,
     pass: EMAIL_PASS,
   },
+  connectionTimeout: 20000,
+  greetingTimeout: 20000,
+  socketTimeout: 20000,
 });
 
 export async function sendReferenceEmails({ request, clients }) {
   if (!clients || !clients.length) return;
+
+  await transporter.verify();
 
   const fromAddress = EMAIL_FROM || `"Y.M.A – אתרים מותאמים" <${EMAIL_USER}>`;
   const { name, phone, email, message, projectType } = request;
@@ -67,15 +74,15 @@ Y.M.A – אתרים מותאמים
     <strong>Y.M.A – אתרים מותאמים</strong></p>
   `;
 
-  const sendPromises = clients.map((client) =>
-    transporter.sendMail({
-      from: fromAddress,
-      to: client.email,
-      subject,
-      text: textBody,
-      html: htmlBody,
-    })
+  await Promise.all(
+    clients.map((client) =>
+      transporter.sendMail({
+        from: fromAddress,
+        to: client.email,
+        subject,
+        text: textBody,
+        html: htmlBody,
+      })
+    )
   );
-
-  await Promise.all(sendPromises);
 }
