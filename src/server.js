@@ -1,10 +1,12 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import cookieParser from "cookie-parser";
 import { connectDB } from "./db.js";
 import referenceClientsRouter from "./routes/referenceClients.js";
 import referenceRequestsRouter from "./routes/referenceRequests.js";
 import projectsRouter from "./routes/projects.js";
+import adminAuthRouter from "./routes/adminAuth.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -47,6 +49,7 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
 
+app.use(cookieParser());
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 
@@ -58,6 +61,7 @@ app.get("/healthz", (req, res) => {
   res.status(200).send("ok");
 });
 
+app.use("/api/admin/auth", adminAuthRouter);
 app.use("/api/reference-clients", referenceClientsRouter);
 app.use("/api/reference-requests", referenceRequestsRouter);
 app.use("/api/projects", projectsRouter);
