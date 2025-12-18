@@ -1,35 +1,7 @@
 import express from "express";
-import multer from "multer";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
 import { Project } from "../models/Project.js";
 
 const router = express.Router();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const uploadDir = path.join(__dirname, "../../uploads/projects");
-fs.mkdirSync(uploadDir, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname || "").toLowerCase();
-    const safeExt = ext && ext.length <= 8 ? ext : "";
-    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${safeExt}`);
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 7 * 1024 * 1024, files: 8 },
-  fileFilter: (_req, file, cb) => {
-    if (file.mimetype?.startsWith("image/")) return cb(null, true);
-    cb(new Error("Only image uploads are allowed"));
-  },
-});
 
 router.get("/", async (req, res) => {
   try {
@@ -40,35 +12,83 @@ router.get("/", async (req, res) => {
       order: 1,
       createdAt: -1,
     });
-    res.json(projects);
+
+    const normalized = projects.map((p) => {
+      const obj = p.toObject();
+      const finalUrl = obj.url || obj.liveUrl || "";
+      return { ...obj, url: finalUrl, liveUrl: finalUrl };
+    });
+
+    res.json(normalized);
   } catch {
     res.status(500).json({ error: "Failed to fetch projects" });
   }
 });
 
-router.post("/", upload.array("images", 8), async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
-    const { clientName, projectType, description, order, isActive } = req.body;
+    const all = String(req.query.all || "") === "1";
+    const project = await Project.findById(req.params.id);
 
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const uploaded = Array.isArray(req.files) ? req.files : [];
+    if (!project) return res.status(404).json({ error: "Project not found" });
+    if (!all && !project.isActive)
+      return res.status(404).json({ error: "Project not found" });
 
-    const uploadedUrls = uploaded.map(
-      (f) => `${baseUrl}/uploads/projects/${f.filename}`
-    );
+    const obj = project.toObject();
+    const finalUrl = obj.url || obj.liveUrl || "";
+    res.json({ ...obj, url: finalUrl, liveUrl: finalUrl });
+  } catch {
+    res.status(500).json({ error: "Failed to fetch project" });
+  }
+});
 
-    const project = await Project.create({
+router.post("/", async (req, res) => {
+  try {
+    const {
       clientName,
       projectType,
       description,
-      images: uploadedUrls,
-      order: Number(order) || 0,
-      isActive: String(isActive) === "true" || isActive === true,
+      longDescription,
+      url,
+      liveUrl,
+      images,
+      order,
+      isActive,
+    } = req.body;
+
+    if (!clientName || !projectType || !description) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const finalUrl =
+      typeof url === "string"
+        ? url
+        : typeof liveUrl === "string"
+        ? liveUrl
+        : "";
+
+    const project = await Project.create({
+      clientName: String(clientName).trim(),
+      projectType: String(projectType).trim(),
+      description: String(description).trim(),
+      longDescription:
+        typeof longDescription === "string" ? longDescription.trim() : "",
+      url: finalUrl,
+      liveUrl: finalUrl,
+      images: Array.isArray(images)
+        ? images.filter((x) => typeof x === "string" && x)
+        : [],
+      order: typeof order === "number" ? order : 0,
+      isActive: typeof isActive === "boolean" ? isActive : true,
     });
 
-    res.status(201).json(project);
-  } catch (err) {
-    res.status(400).json({ error: err?.message || "Failed to create project" });
+    const obj = project.toObject();
+    const normalizedUrl = obj.url || obj.liveUrl || "";
+    res
+      .status(201)
+      .json({ ...obj, url: normalizedUrl, liveUrl: normalizedUrl });
+  } catch {
+    res.status(500).json({ error: "Failed to create project" });
   }
 });
 
@@ -76,9 +96,9 @@ router.delete("/:id", async (req, res) => {
   try {
     const deleted = await Project.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ error: "Project not found" });
-    res.json({ success: true });
+    res.json({ ok: true });
   } catch {
-    res.status(400).json({ error: "Failed to delete project" });
+    res.status(500).json({ error: "Failed to delete project" });
   }
 });
 
