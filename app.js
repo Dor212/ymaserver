@@ -1,7 +1,6 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
-
 import adminAuthRouter from "./routes/adminAuth.js";
 
 const app = express();

@@ -30,6 +30,15 @@ function setRefreshCookie(res, refreshToken) {
   });
 }
 
+
+
+router.get("/ping", (req, res) => {
+  res.json({ ok: true, where: "adminAuth router" });
+});
+
+
+
+
 router.post("/login", loginLimiter, async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password)
