@@ -1,7 +1,7 @@
 import "dotenv/config";
 import bcrypt from "bcrypt";
 import mongoose from "mongoose";
-import { Admin } from "../models/Admin.js";
+import { Admin } from "../src/models/Admin.js";
 
 await mongoose.connect(process.env.MONGODB_URI);
 
