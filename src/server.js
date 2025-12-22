@@ -2,39 +2,45 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
+import path from "path";
+import { fileURLToPath } from "url";
+
 import { connectDB } from "./db.js";
 import referenceClientsRouter from "./routes/referenceClients.js";
 import referenceRequestsRouter from "./routes/referenceRequests.js";
 import projectsRouter from "./routes/projects.js";
 import adminAuthRouter from "./routes/adminAuth.js";
-import path from "path";
-import { fileURLToPath } from "url";
 
 dotenv.config();
 
 const app = express();
 app.set("trust proxy", true);
 
+const normalizeOrigin = (v) =>
+  String(v || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\/$/, "");
+
 const DEFAULT_ALLOWED = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
   "http://localhost:3000",
   "http://127.0.0.1:3000",
-];
+].map(normalizeOrigin);
 
 const ENV_ALLOWED = (process.env.CORS_ORIGINS || "")
   .split(",")
-  .map((s) => s.trim())
+  .map(normalizeOrigin)
   .filter(Boolean);
 
-const ALLOWED_ORIGINS = [...new Set([...DEFAULT_ALLOWED, ...ENV_ALLOWED])];
+const ALLOWED_ORIGINS = new Set([...DEFAULT_ALLOWED, ...ENV_ALLOWED]);
 
 const corsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (!ALLOWED_ORIGINS.length || ALLOWED_ORIGINS.includes(origin))
-      return callback(null, true);
-    return callback(null, false);
+    const o = normalizeOrigin(origin);
+    return callback(null, ALLOWED_ORIGINS.has(o));
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -47,7 +53,7 @@ const __dirname = path.dirname(__filename);
 
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 app.use(cors(corsOptions));
-app.options(/.*/, cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 app.use(cookieParser());
 app.use(express.json({ limit: "25mb" }));
