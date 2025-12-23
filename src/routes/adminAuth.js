@@ -21,12 +21,14 @@ const COOKIE_NAME = "admin_rt";
 
 function setRefreshCookie(res, refreshToken) {
   const isProd = process.env.NODE_ENV === "production";
+
   res.cookie(COOKIE_NAME, refreshToken, {
     httpOnly: true,
     secure: isProd,
-    sameSite: "lax",
+    sameSite: isProd ? "none" : "lax",
     path: "/api/admin/auth",
     maxAge: 14 * 24 * 60 * 60 * 1000,
+    domain: isProd ? ".yma-web.com" : undefined,
   });
 }
 

@@ -33,7 +33,7 @@ app.use(
   })
 );
 
-app.options("*", cors({ origin: true, credentials: true }));
+app.options("*", cors(corsOptions));
 
 app.use("/api/admin/auth", adminAuthRouter);
 
