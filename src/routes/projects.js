@@ -3,6 +3,12 @@ import { Project } from "../models/Project.js";
 
 const router = express.Router();
 
+function normalizeProject(p) {
+  const obj = p.toObject();
+  const finalUrl = obj.url || obj.liveUrl || "";
+  return { ...obj, url: finalUrl, liveUrl: finalUrl };
+}
+
 router.get("/", async (req, res) => {
   try {
     const all = String(req.query.all || "") === "1";
@@ -13,13 +19,7 @@ router.get("/", async (req, res) => {
       createdAt: -1,
     });
 
-    const normalized = projects.map((p) => {
-      const obj = p.toObject();
-      const finalUrl = obj.url || obj.liveUrl || "";
-      return { ...obj, url: finalUrl, liveUrl: finalUrl };
-    });
-
-    res.json(normalized);
+    res.json(projects.map(normalizeProject));
   } catch {
     res.status(500).json({ error: "Failed to fetch projects" });
   }
@@ -34,9 +34,7 @@ router.get("/:id", async (req, res) => {
     if (!all && !project.isActive)
       return res.status(404).json({ error: "Project not found" });
 
-    const obj = project.toObject();
-    const finalUrl = obj.url || obj.liveUrl || "";
-    res.json({ ...obj, url: finalUrl, liveUrl: finalUrl });
+    res.json(normalizeProject(project));
   } catch {
     res.status(500).json({ error: "Failed to fetch project" });
   }
@@ -82,13 +80,33 @@ router.post("/", async (req, res) => {
       isActive: typeof isActive === "boolean" ? isActive : true,
     });
 
-    const obj = project.toObject();
-    const normalizedUrl = obj.url || obj.liveUrl || "";
-    res
-      .status(201)
-      .json({ ...obj, url: normalizedUrl, liveUrl: normalizedUrl });
+    res.status(201).json(normalizeProject(project));
   } catch {
     res.status(500).json({ error: "Failed to create project" });
+  }
+});
+
+router.patch("/:id/images", async (req, res) => {
+  try {
+    const { images } = req.body;
+
+    if (!Array.isArray(images)) {
+      return res.status(400).json({ error: "Invalid images payload" });
+    }
+
+    const sanitized = images.filter((x) => typeof x === "string" && x);
+
+    const updated = await Project.findByIdAndUpdate(
+      req.params.id,
+      { $set: { images: sanitized } },
+      { new: true }
+    );
+
+    if (!updated) return res.status(404).json({ error: "Project not found" });
+
+    res.json(normalizeProject(updated));
+  } catch {
+    res.status(500).json({ error: "Failed to reorder images" });
   }
 });
 
